@@ -1,0 +1,17 @@
+version: '3'
+services:
+  juice-shop:
+    image: bkimminich/juice-shop
+    container_name: victim_app
+    # Não expomos a porta 3000 diretamente para forçar a passagem pelo Nginx
+
+  nginx-proxy:
+    image: nginx:latest
+    container_name: blue_team_logger
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./logs:/var/log/nginx
+    depends_on:
+      - juice-shop

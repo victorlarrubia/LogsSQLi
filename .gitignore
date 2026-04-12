@@ -1,0 +1,20 @@
+# Ambiente virtual
+.venv/
+
+# Arquivos temporários do Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Pasta de apoio local que não deve ir para o GitHub
+recursos/
+
+# Logs e dados intermediários
+logs/
+data/
+
+# Artefatos de sistema
+.DS_Store

@@ -1,12 +1,10 @@
 # LogsSQLi
 
-> Este documento descreve o estado atual do projeto e será refinado conforme novas etapas forem concluídas.
-
 ## 1. Visão geral
 
 O **LogsSQLi** é um projeto acadêmico da disciplina **Análise de Dados**, da **Faculdade Engenheiro Salvador Arena**, voltado à **coleta, estruturação, análise e modelagem preditiva de logs HTTP** com foco na identificação de padrões associados a **SQL Injection (SQLi)**.
 
-O ambiente foi montado para gerar tráfego controlado em uma aplicação vulnerável (**OWASP Juice Shop**) e registrar esse tráfego por meio de um **Nginx reverso**, que atua como proxy e grava os arquivos de log localmente. A partir desses logs, o projeto evolui para um pipeline analítico com três frentes principais:
+O ambiente foi montado para gerar tráfego controlado em uma aplicação vulnerável (**OWASP Juice Shop**) e registrar esse tráfego por meio de um **proxy reverso Nginx**, que grava os arquivos de log localmente. A partir desses logs, enviados periodicamente para o Google Drive por uma tarefa `cron` executando um script Bash com apoio do `rclone`, o projeto evolui para um pipeline analítico com três frentes principais:
 
 - **M1 — Engenharia de Dados (ETL)**  
   Estruturação dos logs brutos, parsing da requisição HTTP, expansão de parâmetros e persistência das tabelas tratadas.
@@ -14,6 +12,8 @@ O ambiente foi montado para gerar tráfego controlado em uma aplicação vulner�
   Estatística descritiva, análise de distribuições, correlações, outliers e comparação de estratégias de detecção de SQLi.
 - **M3 — Modelagem Preditiva (ML)**  
   Preparação supervisionada das amostras, vetorização textual em nível de caractere, treinamento de modelos neurais e aplicação do melhor classificador sobre os parâmetros extraídos dos logs.
+- **M4 — Business Insights & Generative BI**  
+  Construção de dashboard em Streamlit, exploração multidimensional dos dados e apoio à decisão com Google AI Studio.
 
 ---
 
@@ -29,7 +29,8 @@ De forma prática, o projeto busca:
 - enriquecer os dados com atributos derivados da requisição;
 - comparar estratégias de detecção de SQLi;
 - construir uma base preparada para classificação supervisionada;
-- treinar e comparar modelos de Machine Learning / Deep Learning.
+- treinar e comparar modelos de Machine Learning / Deep Learning;
+- disponibilizar uma camada visual de análise e geração assistida de insights.
 
 ---
 
@@ -45,6 +46,12 @@ Cliente / Navegador / curl
             |
             v
  OWASP Juice Shop (porta 3000 interna)
+            |
+            v
+        logs/access.log
+            |
+            v
+   ETL / EDA / ML / Dashboard
 ```
 
 ### Componentes
@@ -55,6 +62,8 @@ Cliente / Navegador / curl
   Proxy reverso responsável por encaminhar as requisições ao Juice Shop e registrar os logs de acesso.
 - **Pasta local `logs/`**  
   Diretório persistido no host para armazenar os arquivos `access.log` e `error.log`.
+- **Google Drive + rclone + cron**  
+  Camada operacional usada para sincronizar logs e artefatos entre a máquina local e o ambiente analítico quando necessário.
 
 ### Configuração utilizada
 
@@ -70,11 +79,16 @@ Cliente / Navegador / curl
 
 ## 4. Estrutura atual do projeto
 
-A estrutura abaixo representa a organização esperada do projeto com base no ambiente local, nos notebooks e nos scripts já utilizados:
+A estrutura abaixo representa a organização esperada do projeto com base no ambiente local, nos notebooks, no dashboard e nos artefatos finais já adicionados:
 
 ```text
 LogsSQLi/
 ├── .venv/
+├── dashboards/
+│   └── streamlit/
+│       ├── app_streamlit_logssqli.py
+│       ├── requirements.txt
+│       └── screenshots/
 ├── data/
 │   ├── raw/
 │   │   ├── access_log_structured.csv
@@ -94,9 +108,14 @@ LogsSQLi/
 │       └── ml/
 │           ├── splits/
 │           └── experiments/
+├── docs_finais/
+│   └── google_ai_studio_validacao.md
 ├── logs/
 │   ├── access.log
 │   └── error.log
+├── prompts/
+│   ├── prompt_teste_dashboard.md
+│   └── system_prompt_gemini.md
 ├── recursos/
 ├── scripts/
 │   ├── convert_access_to_csv.py
@@ -115,7 +134,7 @@ LogsSQLi/
 
 ## 5. Fontes de dados do projeto
 
-Atualmente, o projeto trabalha com duas fontes principais:
+Atualmente, o projeto trabalha com duas fontes principais.
 
 ### 5.1 Logs HTTP de acesso
 
@@ -166,7 +185,7 @@ Script responsável por converter o `access.log` em uma base estruturada em CSV,
 
 ### `scripts/run_pipeline.sh`
 
-Script que organiza a execução inicial do pipeline, incluindo a conversão dos logs e a movimentação/sincronização dos arquivos para a camada `data/raw`.
+Script que organiza a execução inicial do pipeline, incluindo a conversão dos logs e a movimentação ou sincronização dos arquivos para a camada `data/raw`.
 
 ### `ETL_e_EDA_Case_LogsSQLi.ipynb`
 
@@ -196,6 +215,16 @@ Notebook que consolida a etapa de modelagem preditiva, incluindo:
 - consolidação dos alertas por requisição, endpoint e status;
 - salvamento dos artefatos de experimento em `data/processed/ml`.
 
+### `dashboards/streamlit/app_streamlit_logssqli.py`
+
+Aplicação Streamlit responsável por apresentar:
+
+- visão executiva do case;
+- simulação OLAP;
+- comparação de modelos;
+- exploração detalhada dos parâmetros;
+- conteúdo pronto para uso no Google AI Studio.
+
 ---
 
 ## 7. Pré-requisitos
@@ -204,9 +233,10 @@ Antes de executar o ambiente local, é necessário ter instalado:
 
 - **Docker**
 - **Docker Compose**
-- navegador web ou `curl` para gerar tráfego
-- ambiente Python para scripts auxiliares e notebooks
-- Google Colab / Google Drive, caso a execução dos notebooks siga o mesmo fluxo usado no desenvolvimento atual
+- navegador web ou `curl` para gerar tráfego;
+- ambiente Python para scripts auxiliares e notebooks;
+- Google Colab ou Google Drive, caso a execução dos notebooks siga o mesmo fluxo usado no desenvolvimento atual;
+- `rclone`, caso seja utilizada a sincronização automatizada com Google Drive.
 
 ### Verificação local
 
@@ -216,8 +246,6 @@ docker-compose --version
 python3 --version
 ```
 
-> Neste ambiente, o comando disponível é **`docker-compose`** e não `docker compose`.
-
 ---
 
 ## 8. Como subir o ambiente local
@@ -225,7 +253,7 @@ python3 --version
 ### 8.1 Acessar o diretório do projeto
 
 ```bash
-cd /LogsSQLi
+cd ./LogsSQLi
 ```
 
 ### 8.2 Garantir a existência da pasta de logs
@@ -286,7 +314,7 @@ curl "http://localhost/rest/user/login"
 Os logs ficam armazenados localmente em:
 
 ```text
-/LogsSQLi/logs
+./LogsSQLi/logs
 ```
 
 Arquivos esperados:
@@ -297,35 +325,47 @@ Arquivos esperados:
 ### Acompanhar o log de acesso em tempo real
 
 ```bash
-tail -f /LogsSQLi/logs/access.log
+tail -f ./LogsSQLi/logs/access.log
 ```
 
 ### Acompanhar o log de erro em tempo real
 
 ```bash
-tail -f /LogsSQLi/logs/error.log
+tail -f ./LogsSQLi/logs/error.log
 ```
 
 ### Listar os arquivos do diretório de logs
 
 ```bash
-ls -lh /LogsSQLi/logs
+ls -lh ./LogsSQLi/logs
 ```
 
 ---
 
-## 11. Fluxo do pipeline atual
+## 11. Sincronização com Google Drive
+
+Em parte do fluxo operacional do projeto, os logs e artefatos são sincronizados com o Google Drive por meio de:
+
+- `rclone` para acesso ao Drive a partir da máquina local;
+- uma tarefa `cron` para automatizar a execução periódica;
+- scripts auxiliares em Bash e Python para organizar e enviar os arquivos.
+
+Essa camada auxilia na continuidade do pipeline entre a máquina local e o ambiente usado nos notebooks.
+
+---
+
+## 12. Fluxo do pipeline atual
 
 Com base no fluxo já documentado nos notebooks, o pipeline está organizado da seguinte forma.
 
-### 11.1 Etapa operacional inicial
+### 12.1 Etapa operacional inicial
 
 1. gerar tráfego web no Juice Shop;
 2. registrar o tráfego no `logs/access.log`;
 3. converter o log para `data/raw/access_log_structured.csv`;
 4. garantir a disponibilidade de `payloads_dataset.csv` em `data/raw`.
 
-### 11.2 ETL (M1)
+### 12.2 ETL (M1)
 
 A etapa de engenharia de dados realiza, entre outras atividades:
 
@@ -341,7 +381,7 @@ A etapa de engenharia de dados realiza, entre outras atividades:
 - geração de chaves padronizadas para comparação textual;
 - persistência das tabelas intermediárias e finais em `data/processed`.
 
-### 11.3 EDA (M2)
+### 12.3 EDA (M2)
 
 A etapa de análise exploratória contempla:
 
@@ -358,7 +398,7 @@ As estratégias comparadas no projeto incluem:
 - **correspondência por contenção**
 - **heurísticas por assinaturas textuais**
 
-### 11.4 ML (M3)
+### 12.4 ML (M3)
 
 A etapa de modelagem preditiva contempla:
 
@@ -375,7 +415,7 @@ A etapa de modelagem preditiva contempla:
 
 ---
 
-## 12. Principais tabelas analíticas geradas
+## 13. Principais tabelas analíticas geradas
 
 Entre os artefatos já previstos ou gerados ao longo do pipeline, destacam-se:
 
@@ -424,7 +464,7 @@ São gerados arquivos como:
 
 ---
 
-## 13. Comandos úteis
+## 14. Comandos úteis
 
 ### Ver logs dos contêineres
 
@@ -464,12 +504,12 @@ docker-compose down
 
 ---
 
-## 14. Execução resumida
+## 15. Execução resumida
 
 A sequência mínima para repetir a etapa de coleta local é:
 
 ```bash
-cd /LogsSQLi
+cd ./LogsSQLi
 mkdir -p logs
 docker-compose up -d
 docker-compose ps
@@ -485,7 +525,7 @@ docker-compose down
 
 ---
 
-## 15. Troubleshooting
+## 16. Troubleshooting
 
 ### `docker compose` não funciona
 
@@ -531,7 +571,7 @@ curl http://localhost
 
 ---
 
-## 16. Observações metodológicas atuais
+## 17. Observações metodológicas atuais
 
 Com base no desenvolvimento já realizado até aqui:
 
@@ -543,7 +583,7 @@ Com base no desenvolvimento já realizado até aqui:
 
 ---
 
-## 17. Próximas evoluções previstas
+## 18. Próximas evoluções previstas
 
 As próximas etapas devem priorizar:
 
@@ -557,23 +597,129 @@ As próximas etapas devem priorizar:
 
 ---
 
-## 18. Status do documento
+## 19. Business Insights, Dashboard e Generative BI
 
-Este README é **provisório** e foi construído para registrar o estado atual do projeto, servindo como base para evolução da documentação.
+Nesta etapa, o projeto evoluiu da análise técnica para uma camada de suporte à decisão, com foco em visualização interativa, exploração multidimensional e geração assistida de insights.
 
-Nas próximas versões, este arquivo poderá incorporar:
+### 19.1 Dashboard interativo em Streamlit
 
-- instruções completas de instalação;
-- dependências Python detalhadas;
-- diagrama visual da arquitetura;
-- explicação linha a linha dos scripts;
-- descrição formal do dicionário de dados;
-- resultados consolidados de ETL, EDA e ML;
-- orientações de reprodução integral do case.
+O dashboard final do projeto foi desenvolvido em **Streamlit**, com foco em exploração analítica dos logs HTTP processados e dos resultados da modelagem preditiva.
+
+#### Principais funcionalidades implementadas
+
+- **Visão executiva**
+  - KPIs de logs avaliados
+  - volume de alertas SQLi
+  - percentual de logs com alerta
+  - total de parâmetros avaliados e classificados
+
+- **Simulação OLAP**
+  - slicing e dicing por método HTTP, status, endpoint e faixa de risco
+  - drill-down por endpoint e `log_id`
+  - tabela dinâmica com múltiplas métricas
+
+- **Comparação de modelos**
+  - comparação visual entre arquiteturas treinadas
+  - destaque do modelo campeão
+  - exibição de métricas como accuracy, precision, recall, AUC e F1
+
+- **Exploração detalhada**
+  - análise de parâmetros suspeitos
+  - ranking de combinações endpoint + parâmetro
+  - exportação do recorte filtrado em CSV
+
+#### Localização no repositório
+
+```text
+dashboards/streamlit/app_streamlit_logssqli.py
+```
+
+#### Dependências do dashboard
+
+```text
+dashboards/streamlit/requirements.txt
+```
+
+#### Execução local
+
+```bash
+pip install -r dashboards/streamlit/requirements.txt
+streamlit run dashboards/streamlit/app_streamlit_logssqli.py
+```
+
+### 19.2 Google AI Studio - Agente de Insight
+
+Foi configurado um agente de insight no **Google AI Studio** para interpretar os resultados do dashboard e produzir análises qualitativas voltadas à tomada de decisão.
+
+#### Objetivo do agente
+
+Atuar como um consultor de negócios e segurança, com foco em:
+
+- interpretação de indicadores do projeto LogsSQLi;
+- priorização de endpoints com maior concentração de alertas;
+- distinção entre fatos observados e hipóteses;
+- geração de recomendações práticas de mitigação e monitoramento;
+- tradução dos achados técnicos em linguagem executiva.
+
+#### Artefatos versionados no repositório
+
+**System Prompt**
+
+```text
+prompts/system_prompt_gemini.md
+```
+
+**Prompt operacional de teste**
+
+```text
+prompts/prompt_teste_dashboard.md
+```
+
+**Validação funcional e evidência do teste**
+
+```text
+docs_finais/google_ai_studio_validacao.md
+```
+
+#### Observação sobre compartilhamento
+
+Durante a validação, o agente foi configurado e testado com sucesso no Google AI Studio. No entanto, o recurso de compartilhamento do prompt apresentou indisponibilidade temporária na plataforma, impedindo a geração do link público no momento do teste.
+
+Por esse motivo, os prompts e a documentação de validação foram versionados diretamente no repositório como evidência da implementação da camada de **Generative BI**.
+
+### 19.3 Status do pitch em vídeo
+
+A gravação do pitch executivo de até 2 minutos ainda será produzida na etapa final da entrega.
+
+O vídeo deverá demonstrar:
+
+- a dor de mercado abordada pelo projeto;
+- o fluxo ETL → EDA → ML;
+- o dashboard em funcionamento;
+- o uso do agente de insight no Google AI Studio;
+- o valor operacional e analítico da solução.
+
+### 19.4 Estrutura de artefatos finais
+
+```text
+dashboards/
+└── streamlit/
+    ├── app_streamlit_logssqli.py
+    ├── requirements.txt
+    └── screenshots/
+
+prompts/
+├── system_prompt_gemini.md
+└── prompt_teste_dashboard.md
+
+docs_finais/
+└── google_ai_studio_validacao.md
+```
 
 ---
 
-## 19. Equipe
+## 20. Equipe
+
 - Victor Flohr Costa Bicudo Larrubia - 082210026
 - Vitor Dié dos Santos Pereira - 082210023
 - Beatriz de Sá Silva - 081210011
